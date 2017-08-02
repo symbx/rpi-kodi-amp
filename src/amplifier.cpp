@@ -5,7 +5,6 @@
 #include <cstdio>
 #include <cstdlib>
 #include <fstream>
-#include <iostream>
 #include <stdio.h>
 //#include <sys/stat.h>
 #include "amplifier.h"
@@ -69,33 +68,21 @@ void Amplifier::load() {
     char *home = getenv("HOME");
     snprintf(path, sizeof(path), "%s/.config/amplifier", home);
     std::ifstream file(path);
-    std::cout << path << std::endl;
     if(file.fail())
         return;
-    std::cout << "load" << std::endl;
     file >> this->_volume;
-    std::cout << "volume " << +this->_volume << std::endl << "trims ";
     for (int i = 0; i < 6; ++i) {
         file >> this->_trim[i];
-	std::cout << +this->_trim[i] << '|';
     }
-    std::cout << std::endl << "tones ";
     for (int i = 0; i < 3; ++i) {
         file >> this->_tone[i];
-	std::cout << +this->_tone[i] << '|';
     }
-    //file >> this->_input;
     file.read(&this->_input, 1);
     this->_input -= 10;
-    std::cout << std::endl << "input " << +this->_input << std::endl;
-    //file >> this->_functions;
     file.read(&this->_functions, 1);
-    std::cout << "funcs " << +this->_functions << std::endl << "mutes ";
     for (int i = 0; i < 7; ++i) {
         file >> this->_mutes[i];
-	std::cout << +this->_mutes[i] << '|';
     }
-    std::cout << std::endl;
     file.close();
 }
 
@@ -111,11 +98,9 @@ void Amplifier::save() {
     for (int i = 0; i < 3; ++i) {
         file << this->_tone[i];
     }
-    //file << (char)this->_input + 10;
     this->_input += 10;
     file.write(&this->_input, 1);
     this->_input -= 10;
-    //file << this->_functions;
     file.write(&this->_functions, 1);
     for (int i = 0; i < 7; ++i) {
         file << this->_mutes[i];
@@ -158,7 +143,6 @@ int Amplifier::process(int cli, unsigned char cmd, unsigned char val) {
     switch(cmd) {
         case MASTER_VOL_SET:
             this->_volume = this->fixVolume(val);
-            std::cout << "Set volume: " << +this->_volume << '/' << +val << std::endl;
             this->_processor->setMasterVolume((char) (60 - this->_volume));
             this->save();
             return 0;
@@ -204,7 +188,6 @@ int Amplifier::process(int cli, unsigned char cmd, unsigned char val) {
         case INPUT:
             if(val >= 0x07 && val <= 0x0B) {
                 this->_selector->setInput(val);
-                std::cout << "set input " << +val << std::endl;
                 this->_input = val;
                 this->save();
             }

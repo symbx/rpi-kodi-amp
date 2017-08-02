@@ -54,7 +54,7 @@ class Amplifier {
         void load();
         void save();
         int init();
-        int process(unsigned char cmd, unsigned char val);
+        int process(int cli, unsigned char cmd, unsigned char val);
         char fixVolume(char vol);
         void volTrim(char val);
         void setTone(char tone);

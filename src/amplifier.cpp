@@ -5,6 +5,8 @@
 #include <cstdio>
 #include <cstdlib>
 #include <fstream>
+#include <iostream>
+#include <stdio.h>
 //#include <sys/stat.h>
 #include "amplifier.h"
 
@@ -38,6 +40,7 @@ void Amplifier::run() {
         usleep(5000000); //Wait until amplifier power on
     }
     this->_sock = socket(AF_UNIX, SOCK_STREAM, 0);
+    remove("/tmp/amplifier.sock");
     struct sockaddr_un saddr = {AF_UNIX, "/tmp/amplifier.sock"};
     bind(this->_sock, (struct sockaddr*)&saddr, sizeof(saddr));
     listen(this->_sock, 4);
@@ -47,12 +50,12 @@ void Amplifier::run() {
         int out = 0;
         unsigned char *buff = new unsigned char[2]; //I think 2 is normal (1 for command, 1 for value)
         while(1) {
-            ssize_t r = read(this->_sock, buff, 2);
+            ssize_t r = read(conn, buff, 2);
             if (r < 2) {
                 close(conn);
                 break;
             }
-            out = this->process(buff[0], buff[1]);
+            out = this->process(conn, buff[0], buff[1]);
         }
         delete[] buff;
         if(out)
@@ -65,22 +68,34 @@ void Amplifier::load() {
     char path[255];
     char *home = getenv("HOME");
     snprintf(path, sizeof(path), "%s/.config/amplifier", home);
-    //delete[] home;
     std::ifstream file(path);
+    std::cout << path << std::endl;
     if(file.fail())
         return;
+    std::cout << "load" << std::endl;
     file >> this->_volume;
+    std::cout << "volume " << +this->_volume << std::endl << "trims ";
     for (int i = 0; i < 6; ++i) {
         file >> this->_trim[i];
+	std::cout << +this->_trim[i] << '|';
     }
+    std::cout << std::endl << "tones ";
     for (int i = 0; i < 3; ++i) {
         file >> this->_tone[i];
+	std::cout << +this->_tone[i] << '|';
     }
-    file >> this->_input;
-    file >> this->_functions;
+    //file >> this->_input;
+    file.read(&this->_input, 1);
+    this->_input -= 10;
+    std::cout << std::endl << "input " << +this->_input << std::endl;
+    //file >> this->_functions;
+    file.read(&this->_functions, 1);
+    std::cout << "funcs " << +this->_functions << std::endl << "mutes ";
     for (int i = 0; i < 7; ++i) {
         file >> this->_mutes[i];
+	std::cout << +this->_mutes[i] << '|';
     }
+    std::cout << std::endl;
     file.close();
 }
 
@@ -88,7 +103,6 @@ void Amplifier::save() {
     char path[255];
     char *home = getenv("HOME");
     snprintf(path, sizeof(path), "%s/.config/amplifier", home);
-    delete[] home;
     std::ofstream file(path);
     file << this->_volume;
     for (int i = 0; i < 6; ++i) {
@@ -97,8 +111,12 @@ void Amplifier::save() {
     for (int i = 0; i < 3; ++i) {
         file << this->_tone[i];
     }
-    file << this->_input;
-    file << this->_functions;
+    //file << (char)this->_input + 10;
+    this->_input += 10;
+    file.write(&this->_input, 1);
+    this->_input -= 10;
+    //file << this->_functions;
+    file.write(&this->_functions, 1);
     for (int i = 0; i < 7; ++i) {
         file << this->_mutes[i];
     }
@@ -112,16 +130,16 @@ int Amplifier::init() {
         return 1;
     this->_processor->inputSW();
 
-    this->_processor->setMasterVolume(this->_volume);
-    if(this->_functions & 1);
+    this->_processor->setMasterVolume(60 - this->_volume);
+    if(this->_functions & 1)
         this->_processor->setFunctionTone(1);
-    if(this->_functions & 2);
+    if(this->_functions & 2)
         this->_processor->setFunction3D(1);
-    if(this->_functions & 4);
+    if(this->_functions & 4)
         this->_processor->setFunctionMute(1);
-    if(this->_functions & 8);
+    if(this->_functions & 8)
         this->_selector->setSurround(1);
-    if(this->_functions & 16);
+    if(this->_functions & 16)
         this->_selector->setMixChannel(1);
 
     for (char i = 0; i < 6; ++i) {
@@ -136,27 +154,28 @@ int Amplifier::init() {
     return 0;
 }
 
-int Amplifier::process(unsigned char cmd, unsigned char val) {
+int Amplifier::process(int cli, unsigned char cmd, unsigned char val) {
     switch(cmd) {
         case MASTER_VOL_SET:
             this->_volume = this->fixVolume(val);
+            std::cout << "Set volume: " << +this->_volume << '/' << +val << std::endl;
             this->_processor->setMasterVolume((char) (60 - this->_volume));
             this->save();
             return 0;
         case MASTER_VOL_GET:
-            write(this->_sock, &this->_volume, 1);
+            write(cli, &this->_volume, 1);
             return 0;
         case SET_VOL_TRIM:
             this->volTrim(val);
             return 0;
         case GET_VOL_TRIM:
-            write(this->_sock, &this->_trim[(val >> 4) - 1], 1);
+            write(cli, &this->_trim[(val >> 4) - 1], 1);
             return 0;
         case SET_TONE:
             this->setTone(val);
             return 0;
         case GET_TONE:
-            write(this->_sock, &this->_tone[(val >> 4) - 9], 1);
+            write(cli, &this->_tone[(val >> 4) - 9], 1);
             return 0;
         case F_TONE_DEFEAT:
             this->_processor->setFunctionTone(val);
@@ -185,6 +204,7 @@ int Amplifier::process(unsigned char cmd, unsigned char val) {
         case INPUT:
             if(val >= 0x07 && val <= 0x0B) {
                 this->_selector->setInput(val);
+                std::cout << "set input " << +val << std::endl;
                 this->_input = val;
                 this->save();
             }

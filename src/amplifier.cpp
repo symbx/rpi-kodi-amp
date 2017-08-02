@@ -34,7 +34,7 @@ Amplifier::~Amplifier() {
 
 void Amplifier::run() {
     this->load();
-    while(!this->init()) {
+    while(this->init()) {
         usleep(5000000); //Wait until amplifier power on
     }
     this->_sock = socket(AF_UNIX, SOCK_STREAM, 0);
@@ -65,7 +65,7 @@ void Amplifier::load() {
     char path[255];
     char *home = getenv("HOME");
     snprintf(path, sizeof(path), "%s/.config/amplifier", home);
-    delete[] home;
+    //delete[] home;
     std::ifstream file(path);
     if(file.fail())
         return;

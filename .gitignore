@@ -33,3 +33,4 @@
 
 #CLion build dir
 cmake-build-debug
+build

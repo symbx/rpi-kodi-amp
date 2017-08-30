@@ -5,6 +5,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <fstream>
+#include <iostream>
 #include <stdio.h>
 //#include <sys/stat.h>
 #include "amplifier.h"
@@ -36,6 +37,7 @@ Amplifier::~Amplifier() {
 void Amplifier::run() {
     this->load();
     while(this->init()) {
+	std::cout << "Wait for anplifier power on" << std::endl;
         usleep(5000000); //Wait until amplifier power on
     }
     this->_sock = socket(AF_UNIX, SOCK_STREAM, 0);
@@ -111,8 +113,10 @@ void Amplifier::save() {
 
 int Amplifier::init() {
     usleep(300000); //300ms
-    if(this->_processor->reset()< 0)
+    std::cout << "Check..." << std::endl;
+    if(this->_processor->reset() < 0)
         return 1;
+    std::cout << "Reset sent...may be it's online" << std::endl;
     this->_processor->inputSW();
 
     this->_processor->setMasterVolume(60 - this->_volume);
@@ -180,9 +184,9 @@ int Amplifier::process(int cli, unsigned char cmd, unsigned char val) {
         case F_MUTE:
             this->_processor->setFunctionMute(val);
             if(val)
-                this->_functions |= 4;
-            else
                 this->_functions &= 0xFF - 4;
+            else
+                this->_functions |= 4;
             this->save();
             return 0;
         case INPUT:

@@ -1,5 +1,7 @@
 Controller for sound amplifier #DA2023AA02.
 ================
+***new version*** [here](https://github.com/prototypvirus/amp-DA2023AA02)
+
 Building:
 ```
 git clone https://github.com/prototypvirus/rpi-kodi-amp.git
